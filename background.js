@@ -1,5 +1,6 @@
 var accessControlRequestHeaders;
 var exposedHeaders;
+var corsDomains;
 
 var requestListener = function(details){
 	var flag = false,
@@ -31,7 +32,7 @@ var responseListener = function(details){
 	var flag = false,
 	rule = {
 			"name": "Access-Control-Allow-Origin",
-			"value": "*"
+			"value": corsDomains 
 		};
 
 	for (var i = 0; i < details.responseHeaders.length; ++i) {
@@ -54,6 +55,8 @@ var responseListener = function(details){
 	}
 
 	details.responseHeaders.push({"name": "Access-Control-Allow-Methods", "value": "GET, PUT, POST, DELETE, HEAD, OPTIONS"});
+	/* add Credentials */
+	details.responseHeaders.push({"name": "Access-Control-Allow-Credentials", "value": "true"});
 
 	return {responseHeaders: details.responseHeaders};
 	
@@ -63,19 +66,21 @@ var responseListener = function(details){
 chrome.runtime.onInstalled.addListener(function(){
 	chrome.storage.local.set({'active': false});
 	chrome.storage.local.set({'urls': ["<all_urls>"]});
+	chrome.storage.local.set({'domains': '*' });
 	chrome.storage.local.set({'exposedHeaders': ''});
 	reload();
 });
 
 /*Reload settings*/
 function reload() {
-	chrome.storage.local.get({'active': false, 'urls': ["<all_urls>"], 'exposedHeaders': ''}, function(result) {
+	chrome.storage.local.get({'active': false, 'urls': ["<all_urls>"], 'domains': '*', 'exposedHeaders': ''}, function(result) {
 
 		exposedHeaders = result.exposedHeaders;
 
 		/*Remove Listeners*/
 		chrome.webRequest.onHeadersReceived.removeListener(responseListener);
 		chrome.webRequest.onBeforeSendHeaders.removeListener(requestListener);
+		corsDomains = result.domains;
 
 		if(result.active) {
 			chrome.browserAction.setIcon({path: "on.png"});
@@ -84,7 +89,7 @@ function reload() {
 
 				/*Add Listeners*/
 				chrome.webRequest.onHeadersReceived.addListener(responseListener, {
-					urls: result.urls
+					urls: result.urls,
 				},["blocking", "responseHeaders"]);
 
 				chrome.webRequest.onBeforeSendHeaders.addListener(requestListener, {
